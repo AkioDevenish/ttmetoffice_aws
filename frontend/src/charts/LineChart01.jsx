@@ -32,25 +32,48 @@ function LineChart01({
       data: data,
       options: {
         layout: {
-          padding: {
-            top: 20,
-            bottom: 20,
-            left: 20,
-            right: 20,
+          padding: 20,
+        },
+        scales: {
+          y: {
+            display: false,
+            beginAtZero: true,
+          },
+          x: {
+            type: 'time',
+            time: {
+              parser: 'MM-DD-YYYY',
+              unit: 'month',
+            },
+            display: false,
           },
         },
-        // Other chart options...
+        plugins: {
+          tooltip: {
+            callbacks: {
+              title: () => false, // Disable tooltip title
+              label: (context) => formatValue(context.parsed.y),
+            },
+            bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+            backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+          },
+          legend: {
+            display: false,
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: 'nearest',
+        },
+        maintainAspectRatio: false,
+        resizeDelay: 200,
       },
     });
-
     setChart(newChart);
-
-    return () => {
-      if (chart) {
-        chart.destroy();
-      }
-    };
-  }, [data, darkMode]);
+    return () => newChart.destroy();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!chart) return;
@@ -67,7 +90,9 @@ function LineChart01({
     chart.update('none');
   }, [currentTheme]);
 
-  return <canvas ref={canvas} width={width} height={height}></canvas>;
+  return (
+    <canvas ref={canvas} width={width} height={height}></canvas>
+  );
 }
 
 export default LineChart01;

@@ -12,7 +12,7 @@ function ModalSearch({
   const modalContent = useRef(null);
   const searchInput = useRef(null);
 
-  // close on click outside 
+  // close on click outside
   useEffect(() => {
     const clickHandler = ({ target }) => {
       if (!modalOpen || modalContent.current.contains(target)) return

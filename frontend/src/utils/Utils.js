@@ -1,9 +1,9 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfigFile from '../tailwind.config.js'; // Adjust the path as necessary
+import resolveConfig from 'tailwindcss/resolveConfig'
+import tailwindConfigFile from '@tailwindConfig'
 
 export const tailwindConfig = () => {
-  return resolveConfig(tailwindConfigFile);
-};
+  return resolveConfig(tailwindConfigFile)
+}
 
 export const hexToRGB = (h) => {
   let r = 0;
@@ -21,17 +21,14 @@ export const hexToRGB = (h) => {
   return `${+r},${+g},${+b}`;
 };
 
-// Format values for temperature, wind speed, etc.
-export const formatValue = (value, unit = '') => Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 1,
-}).format(value) + (unit ? ` ${unit}` : '');
+export const formatValue = (value) => Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumSignificantDigits: 3,
+  notation: 'compact',
+}).format(value);
 
-// src/partials/Banner.jsx
-// Line 6
-const currentLocation = window.location;
-
-// Format large numbers such as pressure in thousands
 export const formatThousands = (value) => Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 0,
-  notation: 'standard',
+  maximumSignificantDigits: 3,
+  notation: 'compact',
 }).format(value);
