@@ -4,7 +4,8 @@ import forms from '@tailwindcss/forms';
 export default {
   content: [
     './index.html',
-    './src/**/*.{js,jsx,ts,tsx}',
+    './src/**/*.{vue,js,jsx,ts,tsx}',
+   
   ],
   darkMode: 'class',
   theme: {
