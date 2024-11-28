@@ -14,29 +14,39 @@
           </option>
         </select>
         <div class="text-sm text-gray-500">
-          Last updated: {{ lastUpdated ? lastUpdated.toLocaleTimeString() : 'Never' }}
+          Last updated: {{ lastUpdated ? formatDateTime(lastUpdated) : 'Never' }}
         </div>
       </div>
     </header>
-    <div v-if="loading && synopticTimeline.length === 0" class="flex justify-center items-center h-64">Loading...</div>
-    <div v-else-if="error && synopticTimeline.length === 0" class="text-center text-red-500">{{ error }}</div>
+    <div v-if="loading" class="flex justify-center items-center h-64">Loading...</div>
+    <div v-else-if="error" class="text-center text-red-500 p-4">{{ error }}</div>
+    <div v-else-if="!processedData.datasets[0].data.length" class="text-center text-gray-500 p-4">No data available for Synoptic station</div>
     <div v-else>
-      <RealtimeChart v-if="chartData" :data="chartData" :width="595" :height="248" :selectedMetric="selectedMetric" stationName="Synoptic" />
-      <div v-else class="flex items-center justify-center h-64">
-        <div class="text-gray-500">No timeline data available for the selected metric</div>
-      </div>
+      <RealtimeChart 
+        :data="processedData" 
+        :width="595" 
+        :height="248" 
+        :selectedMetric="selectedMetric" 
+        stationName="Synoptic" 
+      />
       <div class="text-xs text-gray-400 text-right mt-2 pr-4">
-        Last fetched: {{ lastFetched.toLocaleTimeString() }}
+        Last fetched: {{ formatDateTime(lastFetched) }}
       </div>
+    </div>
+    <!-- Debug Information -->
+    <div class="text-xs text-gray-400 mt-2 p-4 border-t border-gray-100 dark:border-gray-700/60">
+      <div>Raw Data Length: {{ rawData.length }}</div>
+      <div>Processed Data Length: {{ processedData.datasets[0].data.length }}</div>
+      <div>Selected Metric: {{ selectedMetric }}</div>
+      <div>Last Fetched: {{ formatDateTime(lastFetched) }}</div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import RealtimeChart from '../../charts/RealtimeChart.vue';
-import { tailwindConfig, hexToRGB } from '../../utils/Utils';
 
 export default {
   name: 'DashboardCard08',
@@ -44,9 +54,8 @@ export default {
     RealtimeChart,
   },
   setup() {
-    const synopticTimeline = ref([]);
+    const rawData = ref([]);
     const selectedMetric = ref('temperature');
-    const chartData = ref(null);
     const error = ref(null);
     const loading = ref(true);
     const lastUpdated = ref(null);
@@ -66,16 +75,17 @@ export default {
     const fetchData = async () => {
       try {
         loading.value = true;
+        error.value = null;
         const response = await axios.get('http://127.0.0.1:8000/api/weather_stations/', {
           headers: { 'Accept': 'application/json' }
         });
         console.log('Raw API response:', response.data);
-        
+
         if (Array.isArray(response.data) && response.data.length > 0) {
           const synopticDataPoints = response.data.filter(station => station.name.toLowerCase() === 'synoptic');
           if (synopticDataPoints.length > 0) {
             console.log('Synoptic data points found:', synopticDataPoints);
-            synopticTimeline.value = synopticDataPoints.sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at)).slice(-24);
+            rawData.value = synopticDataPoints;
             lastUpdated.value = new Date(synopticDataPoints[synopticDataPoints.length - 1].recorded_at);
           } else {
             console.error('No Synoptic data points found in the data');
@@ -94,54 +104,60 @@ export default {
       }
     };
 
+    const processedData = computed(() => {
+      if (!rawData.value.length) return { labels: [], datasets: [{ data: [] }] };
+
+      const labels = rawData.value.map(point => formatDateTime(point.recorded_at));
+      const data = rawData.value.map(point => point[selectedMetric.value]);
+
+      return {
+        labels,
+        datasets: [{
+          data,
+          borderColor: '#10b981',
+          fill: false,
+          cubicInterpolationMode: 'monotone',
+          tension: 0.4,
+        }]
+      };
+    });
+
+    const formatDateTime = (dateString) => {
+      const date = new Date(dateString);
+      // Adjust for Trinidad and Tobago time (UTC-4)
+      date.setHours(date.getHours() - 5);
+      
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Port_of_Spain'
+      });
+    };
+
     onMounted(() => {
       fetchData();
       const interval = setInterval(fetchData, 3600000); // Update every hour
       return () => clearInterval(interval);
     });
 
-    watch([synopticTimeline, selectedMetric], () => {
-      if (synopticTimeline.value.length > 0 && selectedMetric.value) {
-        const labels = synopticTimeline.value.map(entry => new Date(entry.recorded_at).toLocaleTimeString());
-        const data = synopticTimeline.value.map(entry => parseFloat(entry[selectedMetric.value]));
-        
-        chartData.value = {
-          labels: labels,
-          datasets: [{
-            data: data,
-            fill: true,
-            backgroundColor: `rgba(${hexToRGB(tailwindConfig().theme.colors.emerald[500])}, 0.08)`,
-            borderColor: tailwindConfig().theme.colors.emerald[700],
-            borderWidth: 2,
-            tension: 0,
-            pointRadius: 0,
-            pointHoverRadius: 3,
-            pointBackgroundColor: tailwindConfig().theme.colors.emerald[700],
-            pointHoverBackgroundColor: tailwindConfig().theme.colors.emerald[700],
-            pointBorderWidth: 0,
-            pointHoverBorderWidth: 0,          
-            clip: 20,
-          }],
-        };
-      } else {
-        chartData.value = null;
-      }
+    watch(rawData, (newData) => {
+      console.log('Raw data updated. New length:', newData.length);
     });
 
     return {
-      synopticTimeline,
+      rawData,
+      processedData,
       selectedMetric,
-      chartData,
       error,
       loading,
       lastUpdated,
       lastFetched,
       metricOptions,
+      formatDateTime,
     };
-  },
+  }
 };
 </script>
-
-<style scoped>
-/* Add any scoped styles here */
-</style>
